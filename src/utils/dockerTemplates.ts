@@ -121,9 +121,9 @@ RUN apk add --no-cache \\
 
 WORKDIR /app
 
-# 2. Copia solo la build prodotta (dist/ con asset HTML/JS e server.js autonomo)
+# 2. Copia gli asset WebUI compilati e il server HTTP nativo zero-dipendenze
 COPY --from=webui-builder /app/dist ./dist
-COPY chrony.conf entrypoint.sh ./
+COPY server.js chrony.conf entrypoint.sh ./
 
 RUN chmod +x entrypoint.sh
 
@@ -232,13 +232,13 @@ cleanup() {
 }
 trap cleanup SIGTERM SIGINT
 
-# 5. Avvia la WebUI minimale Node.js
+# 5. Avvia la WebUI minimale Node.js nativa (zero dipendenze npm)
 echo "[WEBUI] Avvio dashboard telemetria su porta \${PORT:-${opts.webPort}}..."
-if [ -f "./dist/server.js" ]; then
-    node ./dist/server.js &
-    NODE_PID=$!
-elif [ -f "./server.js" ]; then
+if [ -f "./server.js" ]; then
     node server.js &
+    NODE_PID=$!
+elif [ -f "./dist/server.js" ]; then
+    node ./dist/server.js &
     NODE_PID=$!
 elif [ -f "./server.ts" ]; then
     npx tsx server.ts &

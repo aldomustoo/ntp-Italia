@@ -43,13 +43,13 @@ cleanup() {
 }
 trap cleanup SIGTERM SIGINT
 
-# 5. Avvia la WebUI minimale Node.js
+# 5. Avvia la WebUI minimale Node.js nativa (zero dipendenze npm)
 echo "[WEBUI] Avvio dashboard telemetria su porta ${PORT:-8080}..."
-if [ -f "./dist/server.js" ]; then
-    node ./dist/server.js &
+if [ -f "./server.js" ]; then
+    node server.js &
     NODE_PID=$!
-elif [ -f "./server.js" ]; then
-    node ./server.js &
+elif [ -f "./dist/server.js" ]; then
+    node ./dist/server.js &
     NODE_PID=$!
 elif [ -f "./server.ts" ]; then
     npx tsx server.ts &
