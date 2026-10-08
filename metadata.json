@@ -1,0 +1,6 @@
+{
+  "name": "NTP Server Italia - LAN Appliance & Docker Hub Manager",
+  "description": "Server NTP leggero per rete locale sincronizzato con INRIM e pool italiano (Europe/Rome). Gestione automatica ora legale, webUI minimale di telemetria, file Docker pronti all'uso e script per pubblicazione su Docker Hub.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

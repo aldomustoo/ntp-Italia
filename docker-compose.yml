@@ -1,0 +1,33 @@
+name: ntp-italia-stack
+
+services:
+  ntp-server:
+    # Utilizza la variabile DOCKER_USER dal file .env, oppure compila in locale con 'build: .'
+    image: ${DOCKER_USER:-your-username}/chrony-ntp-server:latest
+    # In alternativa, per compilare direttamente dal codice sorgente locale:
+    # build: .
+    container_name: ntp-server-italia
+    restart: unless-stopped
+    
+    # Privilegio kernel SYS_TIME per aggiustare l'orologio con smooth slewing
+    cap_add:
+      - SYS_TIME
+    
+    environment:
+      - TZ=Europe/Rome
+      - PORT=8080
+      - NODE_ENV=production
+    
+    ports:
+      # Porta NTP UDP ufficiale 123 per tutti i client di rete locale (LAN)
+      - "123:123/udp"
+      # Porta WebUI per consultare lo stato, offset e peers INRIM
+      - "8080:8080/tcp"
+    
+    volumes:
+      # Persistenza del drift file per evitare salti di clock dopo il riavvio
+      - ntp_drift_data:/var/lib/chrony
+
+volumes:
+  ntp_drift_data:
+    name: ntp_italia_drift
