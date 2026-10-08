@@ -45,11 +45,14 @@ trap cleanup SIGTERM SIGINT
 
 # 5. Avvia la WebUI minimale Node.js
 echo "[WEBUI] Avvio dashboard telemetria su porta ${PORT:-8080}..."
-if [ -f "./server.ts" ]; then
-    npx tsx server.ts &
+if [ -f "./dist/server.js" ]; then
+    node ./dist/server.js &
     NODE_PID=$!
 elif [ -f "./server.js" ]; then
-    node server.js &
+    node ./server.js &
+    NODE_PID=$!
+elif [ -f "./server.ts" ]; then
+    npx tsx server.ts &
     NODE_PID=$!
 else
     node -e "console.log('WebUI pronta.'); setInterval(()=>{}, 1000);" &

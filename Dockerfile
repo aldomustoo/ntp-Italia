@@ -4,14 +4,21 @@
 # Multi-arch: linux/amd64 (x86_64) + linux/arm64 (Raspberry Pi, NAS)
 # ==============================================================================
 
+# Stage 1: Build WebUI e Server autonomo
 FROM node:22-alpine AS webui-builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts || npm install --omit=dev
-COPY . .
-RUN npm run build || true
 
-# Immagine finale ultraleggera di produzione
+# Copia definizioni package
+COPY package*.json ./
+
+# Installazione con --legacy-peer-deps per evitare blocchi ERESOLVE con o senza package-lock.json
+RUN npm install --legacy-peer-deps --no-audit
+
+# Copia codice sorgente e compilazione completa (client Vite + server Node)
+COPY . .
+RUN npm run build
+
+# Stage 2: Immagine finale ultraleggera di produzione (~35MB)
 FROM alpine:3.21
 
 ARG DOCKER_USER=""
@@ -19,12 +26,11 @@ LABEL maintainer="Open Source Community"
 LABEL description="Chrony NTP Server locale sincronizzato con INRIM e pool italiano (Europe/Rome)"
 LABEL org.opencontainers.image.source="https://github.com/${DOCKER_USER}/chrony-ntp-server"
 
-# Installazione Chrony, tzdata (per gestione fuso Europe/Rome e DST) e Node.js
+# Installazione Chrony, tzdata (per gestione fuso Europe/Rome e DST) e runtime Node.js (senza npm)
 RUN apk add --no-cache \
     chrony \
     tzdata \
     nodejs \
-    npm \
     bash \
     curl \
     && cp /usr/share/zoneinfo/Europe/Rome /etc/localtime \
@@ -34,11 +40,9 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Copia dei file applicativi e webUI
+# Copia solo la build prodotta (dist/ con asset HTML/JS e server.js autonomo)
 COPY --from=webui-builder /app/dist ./dist
-COPY --from=webui-builder /app/node_modules ./node_modules
-COPY package*.json ./
-COPY server.ts entrypoint.sh chrony.conf ./
+COPY chrony.conf entrypoint.sh ./
 
 RUN chmod +x entrypoint.sh
 

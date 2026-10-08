@@ -91,15 +91,15 @@ export function generateDockerfile(opts: DockerConfigOptions = DEFAULT_DOCKER_CO
 # Multi-arch support: linux/amd64, linux/arm64 (Raspberry Pi, NAS, Proxmox)
 # ==============================================================================
 
+# Stage 1: Build WebUI e Server autonomo
 FROM node:22-alpine AS webui-builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts || npm install --omit=dev
+RUN npm install --legacy-peer-deps --no-audit
 COPY . .
-# Se è presente una build Vite, compilala per servire file statici
-RUN npm run build || true
+RUN npm run build
 
-# Immagine finale ultraleggera di produzione
+# Stage 2: Immagine finale ultraleggera di produzione (~35MB)
 FROM alpine:3.21
 
 ARG DOCKER_USER=""
@@ -107,12 +107,11 @@ LABEL maintainer="${maintainerRef}"
 LABEL description="Chrony NTP Server locale sincronizzato con INRIM e pool italiano (Europe/Rome)"
 LABEL org.opencontainers.image.source="https://github.com/\${DOCKER_USER}/${opts.imageName}"
 
-# 1. Installazione Chrony, tzdata (per gestione fuso Europe/Rome e DST) e Node.js
+# 1. Installazione Chrony, tzdata (per gestione fuso Europe/Rome e DST) e runtime Node.js (senza npm)
 RUN apk add --no-cache \\
     chrony \\
     tzdata \\
     nodejs \\
-    npm \\
     bash \\
     curl \\
     && cp /usr/share/zoneinfo/${opts.timezone} /etc/localtime \\
@@ -122,13 +121,10 @@ RUN apk add --no-cache \\
 
 WORKDIR /app
 
-# 2. Copia dei file applicativi e webUI
+# 2. Copia solo la build prodotta (dist/ con asset HTML/JS e server.js autonomo)
 COPY --from=webui-builder /app/dist ./dist
-COPY --from=webui-builder /app/node_modules ./node_modules
-COPY package*.json ./
-COPY server.ts entrypoint.sh chrony.conf ./
+COPY chrony.conf entrypoint.sh ./
 
-# Configura permessi per l'entrypoint
 RUN chmod +x entrypoint.sh
 
 # 3. Esposizione porte:
@@ -151,7 +147,7 @@ ENTRYPOINT ["./entrypoint.sh"]
 }
 
 export function generateDockerCompose(opts: DockerConfigOptions = DEFAULT_DOCKER_CONFIG): string {
-  const userPlaceholder = opts.dockerUsername ? opts.dockerUsername : '${DOCKER_USER:-tuo-username}';
+  const userPlaceholder = opts.dockerUsername ? opts.dockerUsername : '\${DOCKER_USER:-tuo-username}';
   return `name: ntp-italia-stack
 
 services:
@@ -238,14 +234,16 @@ trap cleanup SIGTERM SIGINT
 
 # 5. Avvia la WebUI minimale Node.js
 echo "[WEBUI] Avvio dashboard telemetria su porta \${PORT:-${opts.webPort}}..."
-if [ -f "./server.ts" ]; then
-    npx tsx server.ts &
+if [ -f "./dist/server.js" ]; then
+    node ./dist/server.js &
     NODE_PID=$!
 elif [ -f "./server.js" ]; then
     node server.js &
     NODE_PID=$!
+elif [ -f "./server.ts" ]; then
+    npx tsx server.ts &
+    NODE_PID=$!
 else
-    # Fallback semplice se non c'è il server ts
     node -e "console.log('WebUI pronta.'); setInterval(()=>{}, 1000);" &
     NODE_PID=$!
 fi

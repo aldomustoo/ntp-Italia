@@ -322,9 +322,14 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(__dirname, 'dist')));
+    const fs = await import('fs');
+    const staticPath = fs.existsSync(path.join(__dirname, 'index.html'))
+      ? __dirname
+      : path.join(__dirname, 'dist');
+    
+    app.use(express.static(staticPath));
     app.get('*', (_req, res) => {
-      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+      res.sendFile(path.join(staticPath, 'index.html'));
     });
   }
 
